@@ -1,0 +1,25 @@
+name: Morning News Briefing
+
+on:
+  schedule:
+    # Time is in UTC. "0 1 * * *" means 01:00 UTC every day.
+    # See the setup steps for how to change this to your local morning.
+    - cron: "0 1 * * *"
+  workflow_dispatch: # lets you run it manually with a button for testing
+
+jobs:
+  send-briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python news_briefing.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TIMEZONE: "UTC" # e.g. "Asia/Kolkata", "America/New_York", "Europe/London"
