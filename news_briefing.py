@@ -8,6 +8,7 @@ import os
 import re
 import time
 import html
+import socket
 import smtplib
 import datetime
 from zoneinfo import ZoneInfo
@@ -28,6 +29,9 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
 STORIES_PER_SECTION = int(os.environ.get("STORIES_PER_SECTION") or 3)
 TIMEZONE = os.environ.get("TIMEZONE") or "UTC"
 CANDIDATES_PER_SECTION = 12
+
+# Stop any news feed that takes longer than 20 seconds, so one slow site can't freeze the run.
+socket.setdefaulttimeout(20)
 
 # ---------- News sources (free RSS feeds) ----------
 # If a feed stops working, the script skips it and uses the others.
@@ -168,14 +172,18 @@ def ask_gemini(prompt):
 
     for attempt in range(3):
         try:
-            response = requests.post(url, headers=headers, json=body, timeout=180)
+            response = requests.post(url, headers=headers, json=body, timeout=90)
             if response.status_code == 200:
                 parts = response.json()["candidates"][0]["content"]["parts"]
+                print("  Gemini wrote this section.")
                 return "".join(p.get("text", "") for p in parts)
-            print(f"  Gemini error {response.status_code}: {response.text[:300]}")
+            print(f"  Gemini error {response.status_code}: {response.text[:500]}")
+            if response.status_code in (400, 401, 403, 404):
+                # These errors (bad key, wrong model name, etc.) won't fix themselves, so stop retrying.
+                return None
         except Exception as error:
             print(f"  Gemini request failed: {error}")
-        time.sleep(30 * (attempt + 1))
+        time.sleep(15 * (attempt + 1))
     return None
 
 
